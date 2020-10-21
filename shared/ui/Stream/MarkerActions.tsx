@@ -25,6 +25,7 @@ import { CSMarker } from "@codestream/protocols/api";
 import { getVisibleRanges } from "../store/editorContext/reducer";
 import { getDocumentFromMarker, highlightRange } from "./api-functions";
 import { Marker } from "./Marker";
+import cx from "classnames";
 
 interface State {
 	hasDiff: boolean;
@@ -57,7 +58,7 @@ interface InheritedProps {
 	codemark: CodemarkPlus;
 	marker: CSMarker;
 	markerIndex: number;
-	numMarkers: number;
+	numMarkers?: number;
 	capabilities: Capabilities;
 	isAuthor: boolean;
 	alwaysRenderCode?: boolean;
@@ -66,6 +67,7 @@ interface InheritedProps {
 	selected: boolean;
 	disableDiffCheck?: boolean;
 	disableHighlightOnHover?: boolean;
+	noMargin?: boolean;
 }
 
 type Props = InheritedProps & ConnectedProps & IntlProps;
@@ -440,8 +442,12 @@ class MarkerActions extends React.Component<Props, State> {
 			<>
 				{(this.props.alwaysRenderCode || this.state.hasDiff || this.state.warning || canJump) &&
 					this.renderCodeblock(marker)}
-				{(canCompare || canApply || canOpenRevision || canJump) && selected && !this.state.warning && (
-					<div className="button-spread" id={codemark.id} key="left">
+				{/*(canCompare || canApply || canOpenRevision || canJump) && selected && !this.state.warning && (
+					<div
+						className={cx("button-spread", { "no-padding": this.props.noMargin })}
+						id={codemark.id}
+						key="left"
+					>
 						{this.state.hasDiff && (
 							<div className="left">
 								<Icon name="alert" /> This code has changed
@@ -458,7 +464,7 @@ class MarkerActions extends React.Component<Props, State> {
 									</div>
 								</Tooltip>
 							)}
-							{/* canCompare && (
+							{canCompare && (
 								<Tooltip title="Compare current code to original" placement="bottomRight" delay={1}>
 									<div
 										className="codemark-actions-button"
@@ -467,7 +473,7 @@ class MarkerActions extends React.Component<Props, State> {
 										Compare
 									</div>
 								</Tooltip>
-							) */}
+							) }
 							{canOpenRevision && (
 								<a
 									id="open-revision-button"
@@ -480,7 +486,7 @@ class MarkerActions extends React.Component<Props, State> {
 							)}
 						</div>
 					</div>
-				)}
+							)*/}
 			</>
 		);
 	}
@@ -535,14 +541,16 @@ class MarkerActions extends React.Component<Props, State> {
 		const { scrollingCodeBlock, expandCodeBlock, warning, hasDiff, currentContent } = this.state;
 		if (marker === undefined) return;
 
+		const sideMargin = this.props.noMargin ? "0" : "10px";
 		return (
 			<div
 				className={`related${warning ? "" : " clickable-marker"}`}
 				style={{
 					padding: "0",
-					marginBottom: 0,
-					marginLeft: "10px",
-					marginRight: "10px",
+					marginBottom: "20px",
+					marginTop: "20px",
+					marginLeft: sideMargin,
+					marginRight: sideMargin,
 					position: "relative"
 				}}
 				onMouseEnter={e => {

@@ -89,6 +89,7 @@ import CancelButton from "./CancelButton";
 import { VideoLink } from "./Flow";
 import { PanelHeader } from "../src/components/PanelHeader";
 import { ReposState } from "../store/repos/types";
+import { isOnPrem } from "../store/configs/reducer";
 
 export interface ICrossPostIssueContext {
 	setSelectedAssignees(any: any): void;
@@ -211,6 +212,7 @@ interface State {
 	isProviderReview?: boolean;
 	isInsidePrChangeSet: boolean;
 	changedPrLines: GetShaDiffsRangesResponse[];
+	isPreviewing?: boolean;
 }
 
 function merge(defaults: Partial<State>, codemark: CSCodemark): State {
@@ -233,6 +235,7 @@ class CodemarkForm extends React.Component<Props, State> {
 	permalinkWithCodeRef = React.createRef<HTMLTextAreaElement>();
 	private _assigneesContainerRef = React.createRef<HTMLDivElement>();
 	private _sharingAttributes?: SharingAttributes;
+	private renderedCodeBlocks = {};
 
 	constructor(props: Props) {
 		super(props);
@@ -1089,6 +1092,10 @@ class CodemarkForm extends React.Component<Props, State> {
 		this.toggleCodeHighlightInTextEditor(true, index);
 	};
 
+	pinLocation = (index: number, event?: React.SyntheticEvent) => {
+		this.insertTextAtCursor && this.insertTextAtCursor(`[#${index + 1}]`);
+	};
+
 	selectLocation = (action: "add" | "edit" | "delete") => {
 		this.setState({ locationMenuOpen: "closed" });
 	};
@@ -1197,6 +1204,7 @@ class CodemarkForm extends React.Component<Props, State> {
 	};
 
 	renderSharingControls = () => {
+		if (this.state.isPreviewing) return null;
 		if (this.props.isEditing) return null;
 		if (this.props.currentReviewId) return null;
 		// don't show the sharing controls for these types of diffs
@@ -1469,53 +1477,53 @@ class CodemarkForm extends React.Component<Props, State> {
 		this.setState({ relatedCodemarkIds: codemarkIds });
 	};
 
-	renderCodeblock(marker) {
-		if (marker === undefined) return;
+	// renderCodeblock(marker) {
+	// 	if (marker === undefined) return;
 
-		const path = marker.file || "";
-		let extension = paths.extname(path).toLowerCase();
-		if (extension.startsWith(".")) {
-			extension = extension.substring(1);
-		}
+	// 	const path = marker.file || "";
+	// 	let extension = paths.extname(path).toLowerCase();
+	// 	if (extension.startsWith(".")) {
+	// 		extension = extension.substring(1);
+	// 	}
 
-		let startLine = 1;
-		// `range` is not a property of CSMarker
-		/* if (marker.range) {
-			startLine = marker.range.start.line;
-		} else if (marker.location) {
-			startLine = marker.location[0];
-		} else */ if (
-			marker.locationWhenCreated
-		) {
-			startLine = marker.locationWhenCreated[0];
-		}
+	// 	let startLine = 1;
+	// 	// `range` is not a property of CSMarker
+	// 	/* if (marker.range) {
+	// 		startLine = marker.range.start.line;
+	// 	} else if (marker.location) {
+	// 		startLine = marker.location[0];
+	// 	} else */ if (
+	// 		marker.locationWhenCreated
+	// 	) {
+	// 		startLine = marker.locationWhenCreated[0];
+	// 	}
 
-		const codeHTML = prettyPrintOne(escapeHtml(marker.code), extension, startLine);
-		return [
-			<div className="related" style={{ padding: "0 10px", marginBottom: 0, position: "relative" }}>
-				<div className="file-info">
-					<span className="monospace" style={{ paddingRight: "20px" }}>
-						<Icon name="file"></Icon> {marker.file}
-					</span>{" "}
-					{marker.branchWhenCreated && (
-						<>
-							<span className="monospace" style={{ paddingRight: "20px" }}>
-								<Icon name="git-branch"></Icon> {marker.branchWhenCreated}
-							</span>{" "}
-						</>
-					)}
-					<span className="monospace">
-						<Icon name="git-commit"></Icon> {marker.commitHashWhenCreated.substring(0, 7)}
-					</span>
-				</div>
-				<pre
-					className="code prettyprint"
-					data-scrollable="true"
-					dangerouslySetInnerHTML={{ __html: codeHTML }}
-				/>
-			</div>
-		];
-	}
+	// 	const codeHTML = prettyPrintOne(escapeHtml(marker.code), extension, startLine);
+	// 	return [
+	// 		<div className="related" style={{ padding: "0 10px", marginBottom: 0, position: "relative" }}>
+	// 			<div className="file-info">
+	// 				<span className="monospace" style={{ paddingRight: "20px" }}>
+	// 					<Icon name="file"></Icon> {marker.file}
+	// 				</span>{" "}
+	// 				{marker.branchWhenCreated && (
+	// 					<>
+	// 						<span className="monospace" style={{ paddingRight: "20px" }}>
+	// 							<Icon name="git-branch"></Icon> {marker.branchWhenCreated}
+	// 						</span>{" "}
+	// 					</>
+	// 				)}
+	// 				<span className="monospace">
+	// 					<Icon name="git-commit"></Icon> {marker.commitHashWhenCreated.substring(0, 7)}
+	// 				</span>
+	// 			</div>
+	// 			<pre
+	// 				className="code prettyprint"
+	// 				data-scrollable="true"
+	// 				dangerouslySetInnerHTML={{ __html: codeHTML }}
+	// 			/>
+	// 		</div>
+	// 	];
+	// }
 
 	getTitleLabel() {
 		const commentType = this.getCommentType();
@@ -1687,6 +1695,9 @@ class CodemarkForm extends React.Component<Props, State> {
 				relatedCodemarkIds={
 					this.props.textEditorUriHasPullRequestContext ? undefined : this.state.relatedCodemarkIds
 				}
+				setIsPreviewing={isPreviewing => this.setState({ isPreviewing })}
+				renderCodeBlock={this.renderCodeBlock}
+				renderCodeBlocks={this.renderCodeBlocks}
 				__onDidRender={__onDidRender}
 			/>
 		);
@@ -1710,124 +1721,137 @@ class CodemarkForm extends React.Component<Props, State> {
 		}
 	};
 
-	renderCodeBlocks = () => {
-		const { codeBlocks, liveLocation } = this.state;
-		const { editingCodemark, multiLocation } = this.props;
+	renderCodeBlock = (index, force) => {
+		const { codeBlocks, liveLocation, text, isPreviewing } = this.state;
+		const { editingCodemark } = this.props;
 
-		const numCodeBlocks = codeBlocks.length;
+		const codeBlock = codeBlocks[index];
+		if (!codeBlock) return null;
+		if (liveLocation == index && !codeBlock.range)
+			return <span className="add-range">Select a range to add a code location</span>;
+
+		if (!codeBlock.range) return null;
+
+		const blockInjected = text.includes(`[#${index + 1}]`);
+		if (isPreviewing && blockInjected && !force) return null;
+
+		const scm = codeBlock.scm;
+
+		let file = scm && scm.file ? paths.basename(scm.file) : "";
+
+		let range: any = codeBlock.range;
+		if (editingCodemark) {
+			if (editingCodemark.markers) {
+				const marker = editingCodemark.markers[0];
+				if (marker.locationWhenCreated) {
+					// TODO: location is likely invalid
+					range = arrayToRange(marker.locationWhenCreated as any);
+				} else {
+					range = undefined;
+				}
+				file = marker.file || "";
+			}
+		}
+		let extension = paths.extname(file).toLowerCase();
+		if (extension.startsWith(".")) extension = extension.substring(1);
+
+		const codeHTML = prettyPrintOne(
+			escapeHtml(codeBlock.contents),
+			extension,
+			range.start.line + 1
+		);
+		return (
+			<div
+				className={cx("related", { live: liveLocation == index })}
+				style={{ padding: "0", marginBottom: 0, position: "relative" }}
+			>
+				<div className="file-info">
+					{file && (
+						<>
+							<span className="monospace" style={{ paddingRight: "20px" }}>
+								<Icon name="file" /> {file}
+							</span>{" "}
+						</>
+					)}
+					{scm && scm.branch && (
+						<>
+							<span className="monospace" style={{ paddingRight: "20px" }}>
+								<Icon name="git-branch" /> {scm.branch}
+							</span>{" "}
+						</>
+					)}
+					{scm && scm.revision && (
+						<span className="monospace">
+							<Icon name="git-commit" /> {scm.revision.substring(0, 7)}
+						</span>
+					)}
+				</div>
+				<pre
+					className="code prettyprint"
+					data-scrollable="true"
+					dangerouslySetInnerHTML={{ __html: codeHTML }}
+				/>
+				{liveLocation == index && (
+					<div className="code-buttons live">
+						<div className="codemark-actions-button ok" onClick={this.cementLocation}>
+							OK
+						</div>
+						<div className="codemark-actions-button" onClick={e => this.deleteLocation(index, e)}>
+							Cancel
+						</div>
+					</div>
+				)}
+				{liveLocation != index && !isPreviewing && (
+					<div className="code-buttons">
+						<Icon
+							title={
+								blockInjected
+									? `This code block [#${index + 1}] is in the markdown above`
+									: `Insert code block #${index + 1} in markdown`
+							}
+							placement="bottomRight"
+							name="pin"
+							className={blockInjected ? "clickable selected" : "clickable"}
+							onMouseDown={e => this.pinLocation(index, e)}
+						/>
+						<Icon
+							title={"Jump to this range in " + file}
+							placement="bottomRight"
+							name="link-external"
+							className="clickable"
+							onClick={e => this.jumpToLocation(index, e)}
+						/>
+						<Icon
+							title="Select new range"
+							placement="bottomRight"
+							name="select"
+							className="clickable"
+							onClick={e => this.editLocation(index, e)}
+						/>
+						<Icon
+							title="Remove Range"
+							placement="bottomRight"
+							name="x"
+							className="clickable"
+							onClick={e => this.deleteLocation(index, e)}
+						/>
+					</div>
+				)}
+				<div style={{ clear: "both" }}></div>
+			</div>
+		);
+	};
+
+	renderCodeBlocks = () => {
+		const { codeBlocks, liveLocation, isPreviewing } = this.state;
+		const { editingCodemark, multiLocation, commentType } = this.props;
 
 		if (multiLocation || !editingCodemark) {
 			return (
 				<>
-					{codeBlocks.map((codeBlock, index) => {
-						if (!codeBlock) return null;
-						if (liveLocation == index && !codeBlock.range)
-							return <span className="add-range">Select a range to add a code location</span>;
+					{codeBlocks.map((codeBlock, index) => this.renderCodeBlock(index, false))}
 
-						if (!codeBlock.range) return null;
-
-						const scm = codeBlock.scm;
-
-						let file = scm && scm.file ? paths.basename(scm.file) : "";
-
-						let range: any = codeBlock.range;
-						if (editingCodemark) {
-							if (editingCodemark.markers) {
-								const marker = editingCodemark.markers[0];
-								if (marker.locationWhenCreated) {
-									// TODO: location is likely invalid
-									range = arrayToRange(marker.locationWhenCreated as any);
-								} else {
-									range = undefined;
-								}
-								file = marker.file || "";
-							}
-						}
-						let extension = paths.extname(file).toLowerCase();
-						if (extension.startsWith(".")) extension = extension.substring(1);
-
-						const codeHTML = prettyPrintOne(
-							escapeHtml(codeBlock.contents),
-							extension,
-							range.start.line + 1
-						);
-						return (
-							<div
-								className={cx("related", { live: liveLocation == index })}
-								style={{ padding: "0", marginBottom: 0, position: "relative" }}
-							>
-								<div className="file-info">
-									{file && (
-										<>
-											<span className="monospace" style={{ paddingRight: "20px" }}>
-												<Icon name="file" /> {file}
-											</span>{" "}
-										</>
-									)}
-									{scm && scm.branch && (
-										<>
-											<span className="monospace" style={{ paddingRight: "20px" }}>
-												<Icon name="git-branch" /> {scm.branch}
-											</span>{" "}
-										</>
-									)}
-									{scm && scm.revision && (
-										<span className="monospace">
-											<Icon name="git-commit" /> {scm.revision.substring(0, 7)}
-										</span>
-									)}
-								</div>
-								<pre
-									className="code prettyprint"
-									data-scrollable="true"
-									dangerouslySetInnerHTML={{ __html: codeHTML }}
-								/>
-								{liveLocation == index && (
-									<div className="code-buttons live">
-										<div className="codemark-actions-button ok" onClick={this.cementLocation}>
-											OK
-										</div>
-										<div
-											className="codemark-actions-button"
-											onClick={e => this.deleteLocation(index, e)}
-										>
-											Cancel
-										</div>
-									</div>
-								)}
-								{liveLocation != index && (
-									<div className="code-buttons">
-										<Icon
-											title={"Jump to this range in " + file}
-											placement="bottomRight"
-											name="link-external"
-											className="clickable"
-											onClick={e => this.jumpToLocation(index, e)}
-										/>
-										<Icon
-											title="Select new range"
-											placement="bottomRight"
-											name="select"
-											className="clickable"
-											onClick={e => this.editLocation(index, e)}
-										/>
-										{numCodeBlocks > 0 && (
-											<Icon
-												title="Remove Range"
-												placement="bottomRight"
-												name="x"
-												className="clickable"
-												onClick={e => this.deleteLocation(index, e)}
-											/>
-										)}
-									</div>
-								)}
-								<div style={{ clear: "both" }}></div>
-							</div>
-						);
-					})}
-
-					{this.props.commentType === "link" ? null : this.state.addingLocation ? (
+					{isPreviewing || commentType === "link" ? null : this.state.addingLocation ? (
 						<div className="add-range" style={{ clear: "both", position: "relative" }}>
 							Select code from any file to add a range
 							<div className="code-buttons live">
@@ -1905,6 +1929,8 @@ class CodemarkForm extends React.Component<Props, State> {
 		const { editingCodemark, currentReviewId } = this.props;
 
 		const commentType = this.getCommentType();
+
+		this.renderedCodeBlocks = {};
 
 		// if you are conducting a review, and somehow are able to try to
 		// create an issue or a permalink, stop the user from doing that
@@ -2043,9 +2069,10 @@ class CodemarkForm extends React.Component<Props, State> {
 	};
 
 	renderEmailAuthors = () => {
-		const { unregisteredAuthors, emailAuthors } = this.state;
+		const { unregisteredAuthors, emailAuthors, isPreviewing } = this.state;
 		const { isCurrentUserAdmin } = this.props;
 
+		if (isPreviewing) return null;
 		if (unregisteredAuthors.length === 0) return null;
 
 		return unregisteredAuthors.map(author => {
@@ -2292,12 +2319,12 @@ class CodemarkForm extends React.Component<Props, State> {
 					{/* this.renderPrivacyControls() */}
 					{this.renderRelatedCodemarks()}
 					{this.renderTags()}
-					{this.renderCodeBlocks()}
+					{!this.state.isPreviewing && this.renderCodeBlocks()}
 					{this.props.multiLocation && <div style={{ height: "10px" }} />}
 					{commentType !== "link" && this.renderEmailAuthors()}
 					{commentType !== "link" && this.renderSharingControls()}
 					{this.props.currentReviewId && this.renderRequireChange()}
-					{true && (
+					{!this.state.isPreviewing && (
 						<div key="buttons" className="button-group float-wrap">
 							<CancelButton
 								toolTip={cancelTip}
@@ -2503,13 +2530,10 @@ const mapStateToProps = (state: CodeStreamState): ConnectedProps => {
 	};
 };
 
-const ConnectedCodemarkForm = connect(
-	mapStateToProps,
-	{
-		openPanel,
-		openModal,
-		setUserPreference
-	}
-)(CodemarkForm);
+const ConnectedCodemarkForm = connect(mapStateToProps, {
+	openPanel,
+	openModal,
+	setUserPreference
+})(CodemarkForm);
 
 export { ConnectedCodemarkForm as CodemarkForm };

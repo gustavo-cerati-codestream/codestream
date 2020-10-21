@@ -37,6 +37,7 @@ interface Props {
 	currentUserName: string;
 	teamId: string;
 	displayType?: "collapsed" | "default" | "activity";
+	skipMarkers?: number[];
 
 	onSubmitPost?: any;
 	createPost(...args: Parameters<typeof createPost>): ReturnType<ReturnType<typeof createPost>>;
@@ -143,6 +144,7 @@ export class CodemarkDetails extends React.Component<Props, State> {
 					isAuthor={author.id === currentUserId}
 					capabilities={capabilities}
 					displayType={this.props.displayType}
+					skipMarkers={this.props.skipMarkers}
 				/>
 				<div className="replies">
 					{this.state.isLoadingReplies && (

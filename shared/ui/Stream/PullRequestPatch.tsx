@@ -16,6 +16,7 @@ export const PRPatchRoot = styled.div`
 	white-space: pre;
 	border: 1px solid var(--base-border-color);
 	border-top: 0;
+	tab-size: 2;
 	pre {
 		white-space: pre !important;
 		padding: 1px 10px !important;

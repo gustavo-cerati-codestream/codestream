@@ -23,6 +23,7 @@ const Label = styled.span`
 	}
 	overflow: hidden;
 	text-overflow: ellipsis;
+	color: var(--text-color-subtle);
 `;
 
 const Gear = styled.div`
@@ -40,7 +41,7 @@ const Tabs = styled.div`
 	width: 100%;
 	margin-bottom: -6px;
 	z-index: 50;
-	margin-top: 10px;
+	margin-top: 5px;
 	${Gear} {
 		padding-bottom: 5px;
 	}
@@ -51,7 +52,8 @@ const Tab = styled.div<{ selected?: boolean }>`
 		props.selected ? "1px solid var(--base-border-color)" : "1px solid transparent"};
 	color: ${props => (props.selected ? "var(--text-color-highlight)" : "var(--text-color-subtle)")};
 	background: ${props => (props.selected ? "rgba(0, 0, 0, 0.1)" : "none")};
-	border-bottom: ${props => (props.selected ? "none" : "1px solid var(--base-border-color)")};
+	border-bottom: ${props =>
+		props.selected ? "1px solid transparent" : "1px solid var(--base-border-color)"};
 	padding: 5px 10px;
 	&:hover {
 		color: var(--text-color-highlight);

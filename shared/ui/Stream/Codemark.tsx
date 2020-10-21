@@ -78,6 +78,7 @@ import { isFeatureEnabled } from "../store/apiVersioning/reducer";
 import { HeadshotName } from "../src/components/HeadshotName";
 import { PRCodeCommentPatch } from "./PullRequestComponents";
 import { PullRequestPatch } from "./PullRequestPatch";
+import MarkerActions from "./MarkerActions";
 
 interface State {
 	hover: boolean;
@@ -162,6 +163,7 @@ export class Codemark extends React.Component<Props, State> {
 	private _markersToHighlight: { [markerId: string]: { range: Range; fileUri: string } } = {};
 	private _isHighlightedInTextEditor = false; // TODO: when there are multiple markers, this should be inside _markersToHighlight
 	private permalinkRef = React.createRef<HTMLTextAreaElement>();
+	private skipMarkers: number[] = [];
 
 	constructor(props: Props) {
 		super(props);
@@ -315,7 +317,46 @@ export class Codemark extends React.Component<Props, State> {
 		this.setState({ isEditing: false });
 	};
 
-	renderTextLinkified = text => {
+	renderTextReplaceCodeBlocks = (text: string) => {
+		const { codemark, capabilities } = this.props;
+		if (!codemark || !codemark.markers) return this.renderTextLinkified(text);
+
+		const blocks: any[] = [];
+		const groups = text.split(/\[#(\d+)]/);
+		let index = 0;
+		this.skipMarkers = [];
+		while (index < groups.length) {
+			blocks.push(this.renderTextLinkified(groups[index]));
+			if (index + 1 < groups.length) {
+				const markerIndex = parseInt(groups[index + 1], 10);
+				if (markerIndex > 0) {
+					const marker = codemark.markers[markerIndex - 1];
+					if (marker) {
+						this.skipMarkers.push(markerIndex - 1);
+						blocks.push(
+							<div key={index}>
+								<MarkerActions
+									key={marker.id}
+									codemark={codemark}
+									marker={marker}
+									capabilities={capabilities}
+									isAuthor={false}
+									alwaysRenderCode
+									markerIndex={index}
+									selected={true}
+									noMargin
+								/>
+							</div>
+						);
+					}
+				}
+			}
+			index += 2;
+		}
+		return <>{blocks}</>;
+	};
+
+	renderTextLinkified = (text: string) => {
 		let html;
 		if (text == null || text === "") {
 			html = "";
@@ -1390,6 +1431,13 @@ export class Codemark extends React.Component<Props, State> {
 		// 	);
 		// }
 
+		const re = /\[#(\d+)]/g;
+		const matchingLocatedBlocks = {};
+		let match;
+		while ((match = re.exec(codemark.title || codemark.text))) {
+			matchingLocatedBlocks[match[1]] = true;
+		}
+
 		return (
 			<div
 				className={cx("codemark inline type-" + type, {
@@ -1514,7 +1562,7 @@ export class Codemark extends React.Component<Props, State> {
 							)}
 						</div>
 						{!renderAlternateBody && (renderExpandedBody || type !== "bookmark")
-							? this.renderTextLinkified(codemark.title || codemark.text)
+							? this.renderTextReplaceCodeBlocks(codemark.title || codemark.text)
 							: null}
 						{!renderExpandedBody && !renderAlternateBody && this.renderPinnedReplies()}
 						{!renderExpandedBody && !renderAlternateBody && this.renderDetailIcons(codemark)}
@@ -1534,6 +1582,7 @@ export class Codemark extends React.Component<Props, State> {
 							author={this.props.author}
 							postAction={this.props.postAction}
 							displayType={this.props.displayType}
+							skipMarkers={this.skipMarkers}
 						>
 							<div className="description">
 								{/* this.renderVisibilitySelected() */}

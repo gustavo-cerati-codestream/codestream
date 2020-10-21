@@ -17,6 +17,7 @@ interface InheritedProps {
 	toggleCodeHighlightInTextEditor?: Function;
 	jumpToMarkerId?: string;
 	displayType?: "collapsed" | "default" | "activity";
+	skipMarkers?: number[];
 }
 
 type Props = InheritedProps & IntlProps;
@@ -31,6 +32,7 @@ class CodemarkActions extends React.Component<Props, State> {
 		const selected = this.props.displayType !== "activity";
 
 		return codemark.markers.map((marker, index) => {
+			if ((this.props.skipMarkers || []).includes(index)) return null;
 			// do we jump to the marker? only if it is selectd, and either
 			// the jumpToMarkerId matches, or otherwise it's the first marker
 			const jumpToMarker = !selected

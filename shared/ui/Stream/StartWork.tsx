@@ -386,7 +386,6 @@ export const StartWork = (props: Props) => {
 			textEditorUri: state.editorContext.textEditorUri,
 			branchMaxLength: settings.branchMaxLength || 40,
 			branchTicketTemplate: settings.branchTicketTemplate || "feature/ticket-{id}-{title}",
-			branchDescriptionTemplate: settings.branchDescriptionTemplate || "feature/{title}",
 			createBranch: Object.keys(workPrefs).includes("createBranch") ? workPrefs.createBranch : true,
 			moveCard: Object.keys(workPrefs).includes("moveCard") ? workPrefs.moveCard : true,
 			updateSlack: isConnectedToSlack ? updateSlack : false,
@@ -574,26 +573,12 @@ export const StartWork = (props: Props) => {
 	const newBranch = React.useMemo(() => {
 		if (customBranchName) return customBranchName;
 		return replaceTicketTokens(derivedState.branchTicketTemplate, card, label);
-		// else return replaceDescriptionTokens(derivedState.branchDescriptionTemplate, label);
-	}, [
-		label,
-		card,
-		customBranchName,
-		derivedState.branchTicketTemplate,
-		derivedState.branchDescriptionTemplate
-	]);
+	}, [label, card, customBranchName, derivedState.branchTicketTemplate]);
 
 	const branch = React.useMemo(() => {
 		if (customBranchName) return customBranchName;
 		return replaceTicketTokens(derivedState.branchTicketTemplate, card, label);
-		// else return replaceDescriptionTokens(derivedState.branchDescriptionTemplate, label);
-	}, [
-		label,
-		card,
-		customBranchName,
-		derivedState.branchTicketTemplate,
-		derivedState.branchDescriptionTemplate
-	]);
+	}, [label, card, customBranchName, derivedState.branchTicketTemplate]);
 
 	const save = async () => {
 		setLoading(true);
